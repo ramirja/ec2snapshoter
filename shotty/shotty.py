@@ -31,7 +31,7 @@ def snapshots():
 @snapshots.command('list')
 @click.option('--project', default=None, 
     help="Only snapshots for project (tag Project:<name>)")
-@click.option('--all, 'list-all', default=False, is_flag=True,
+@click.option('--all', 'list_all', default=False, is_flag=True,
     help="List all snapshots for each volume, not just the most recent")
 def list_snapshots(project, list_all):
     "List EC2 snapshots"
@@ -52,7 +52,25 @@ def list_snapshots(project, list_all):
                 if s.state == 'completed' and not list_all: break
 
     return
+@snapshots.command('delete')
+@click.option('--project', default=None,
+  help='Delete snapshots for project')
+def delete_snapshots(project):
+    "Delete EBS snapshots"
+    
+    instances = filter_instances(project)
 
+    for i in instances:
+        for v in i.volumes.all():
+            for s in v.snapshots.all():
+                print("Deleting {0}...".format(s.id))
+            try:
+                s.delete()
+            except botocore.exceptions.ClientError as e:
+                print("Could not delete {0}. ".format(s.id) + str(e))
+            continue
+
+    return
 @cli.group('volumes')
 def volumes():
     """Commands for volumes"""
@@ -97,7 +115,7 @@ def create_snapshots(project):
         i.wait_until_stopped()
 
         for v in i.volumes.all():
-            if has_pending_snapshot(v)
+            if has_pending_snapshot(v):
                 print("  Skipping {0}, snapshot already in progress".format(v.id))
                 continue
 
